@@ -460,4 +460,40 @@ contract MultiSignatureWallet {
             block.timestamp
         );
     }
+
+    function submitTransaction(
+        address _destination,
+        uint256 _value,
+        bytes memory _data
+    ) external OnlyOwner returns (uint256 transactionId) {
+        require(_destination != address(0), "Invalid destination");
+
+        transactionId = transactionCount;
+
+        transactions[transactionId] = Transaction({
+            destination: _destination,
+            value: _value,
+            data: _data,
+            executed: false,
+            timestamp: block.timestamp
+        });
+
+        confirmations[transactionId][msg.sender] = true;
+        confirmationCount[transactionId] = 1;
+
+        transactionCount++;
+
+        emit Submission(
+            transactionId,
+            _destination,
+            _value,
+            _data,
+            msg.sender,
+            block.timestamp
+        );
+
+        emit Confirmation(transactionId, msg.sender, 1, block.timestamp);
+
+        return transactionId;
+    }
 }
