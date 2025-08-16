@@ -603,4 +603,93 @@ contract MultiSignatureWallet {
             );
         }
     }
+
+    function batchConfirmation(
+        uint256[] memory _transactionIds
+    ) external OnlyOwner {
+        require(_transactionIds.length > 0, "Not a valid Input");
+
+        for (uint i = 0; i < _transactionIds.length; i++) {
+            uint256 txId = _transactionIds[i];
+
+            if (
+                transactions[txId].destination == address(0) ||
+                transactions[txId].executed ||
+                confirmations[txId][msg.sender]
+            ) {
+                continue;
+            }
+
+            confirmations[txId][msg.sender] = true;
+            confirmationCount[txId] += 1;
+
+            emit Confirmation(
+                txId,
+                msg.sender,
+                confirmationCount[txId],
+                block.timestamp
+            );
+        }
+    }
+
+    function batchExecution(
+        uint256[] memory _transactionIds
+    ) external OnlyOwner {
+        require(_transactionIds.length > 0, "Not a valid Input");
+
+        uint successCount = 0;
+
+        for (uint i = 0; i < _transactionIds.length; i++) {
+            uint256 txId = _transactionIds[i];
+
+            if (
+                transactions[txId].destination == address(0) ||
+                transactions[txId].executed ||
+                confirmationCount[txId] < required
+            ) {
+                continue;
+            }
+
+            transactions[txId].executed = true;
+            address destination = transactions[txId].destination;
+            uint256 value = transactions[txId].value;
+            bytes memory data = transactions[txId].data;
+
+            uint256 gasStart = gasleft();
+            (bool success, bytes memory returnData) = destination.call{
+                value: value
+            }(data);
+            uint256 gasUsed = gasStart - gasleft();
+
+            if (success) {
+                successCount += 1;
+                emit Execution(
+                    txId,
+                    destination,
+                    value,
+                    success,
+                    returnData,
+                    msg.sender,
+                    gasUsed,
+                    block.timestamp
+                );
+            } else {
+                emit ExecutionFailure(
+                    txId,
+                    destination,
+                    value,
+                    returnData,
+                    msg.sender,
+                    block.timestamp
+                );
+            }
+        }
+
+        emit BatchExecution(
+            _transactionIds,
+            successCount,
+            msg.sender,
+            block.timestamp
+        );
+    }
 }
