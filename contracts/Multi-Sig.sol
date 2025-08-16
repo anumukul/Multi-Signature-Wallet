@@ -490,4 +490,12 @@ contract MultiSignatureWallet {
         Transaction storage txn = transactions[transactionId];
         return (txn.destination, txn.value, txn.data, txn.executed);
     }
+
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value, block.timestamp);
+    }
+
+    fallback() external payable {
+        emit Deposit(msg.sender, msg.value, block.timestamp);
+    }
 }
