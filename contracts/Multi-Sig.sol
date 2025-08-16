@@ -20,6 +20,11 @@ contract MultiSignatureWallet {
     uint256 public lastDailyReset;
     uint256 public lastWeeklyReset;
 
+    bool public paused;
+
+    mapping(address => bool) public isGuardian;
+    address[] public guardians;
+
     constructor(
         address[] memory _owners,
         uint256 _required
@@ -33,6 +38,9 @@ contract MultiSignatureWallet {
 
         owners = _owners;
         required = _required;
+
+        lastDailyReset = block.timestamp;
+        lastWeeklyReset = block.timestamp;
     }
 
     modifier OnlyOwner() {
@@ -47,6 +55,15 @@ contract MultiSignatureWallet {
         );
         require(_required != 0, "required cannot be zero");
         require(ownerCount != 0, "Owner count cannot be zero");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Wallet is paused");
+        _;
+    }
+    modifier whenPaused() {
+        require(paused, "Wallet is not paused");
         _;
     }
 
@@ -146,10 +163,32 @@ contract MultiSignatureWallet {
         uint256 timestamp
     );
 
-    function setTimeLockPeriod(uint256 _period) external OnlyOwner {
+    event EmergencyRecovery(
+        address[] newOwners,
+        uint256 newRequired,
+        address indexed triggeredBy,
+        uint256 timestamp
+    );
+
+    event GuardianAdded(
+        address indexed guardian,
+        address indexed addedBy,
+        uint256 timestamp
+    );
+    event GuardianRemoved(
+        address indexed guardian,
+        address indexed removedBy,
+        uint256 timestamp
+    );
+
+    function setTimeLockPeriod(
+        uint256 _period
+    ) external OnlyOwner whenNotPaused {
+        uint256 oldPeriod = timeLockPeriod;
+
         timeLockPeriod = _period;
         emit TimeLockPeriodChanged(
-            timeLockPeriod,
+            oldPeriod,
             _period,
             msg.sender,
             block.timestamp
@@ -158,7 +197,12 @@ contract MultiSignatureWallet {
 
     function addOwner(
         address newOwner
-    ) external OnlyOwner validRequirement(owners.length + 1, required) {
+    )
+        external
+        OnlyOwner
+        validRequirement(owners.length + 1, required)
+        whenNotPaused
+    {
         require(isOwner[newOwner] == false, "Owner already exists");
         require(newOwner != address(0), "Invalid address");
         owners.push(newOwner);
@@ -166,7 +210,9 @@ contract MultiSignatureWallet {
         emit OwnerAddition(newOwner, msg.sender, block.timestamp);
     }
 
-    function removeOwner(address ownerToRemove) external OnlyOwner {
+    function removeOwner(
+        address ownerToRemove
+    ) external OnlyOwner whenNotPaused {
         require(ownerToRemove != address(0), "Invalid address");
         require(isOwner[ownerToRemove], "Not an existing owner");
         require(
@@ -191,7 +237,7 @@ contract MultiSignatureWallet {
     function replaceOwner(
         address ownerToReplace,
         address newOwner
-    ) external OnlyOwner {
+    ) external OnlyOwner whenNotPaused {
         require(ownerToReplace != address(0), "Invalid address");
         require(newOwner != address(0), "Invalid address");
         require(isOwner[ownerToReplace], "Owner does not exist");
@@ -216,7 +262,12 @@ contract MultiSignatureWallet {
 
     function changeRequirement(
         uint256 _required
-    ) external OnlyOwner validRequirement(owners.length, _required) {
+    )
+        external
+        OnlyOwner
+        validRequirement(owners.length, _required)
+        whenNotPaused
+    {
         uint256 previous = required;
         required = _required;
         emit RequirementChange(
@@ -231,7 +282,7 @@ contract MultiSignatureWallet {
         address _destination,
         uint256 _value,
         bytes memory _data
-    ) external OnlyOwner returns (uint256 transactionId) {
+    ) external OnlyOwner whenNotPaused returns (uint256 transactionId) {
         require(_destination != address(0), "Invalid destination");
         transactionId = transactionCount;
         transactions[transactionId] = Transaction({
@@ -257,7 +308,9 @@ contract MultiSignatureWallet {
         return transactionId;
     }
 
-    function confirmTransaction(uint256 _transactionId) external OnlyOwner {
+    function confirmTransaction(
+        uint256 _transactionId
+    ) external OnlyOwner whenNotPaused {
         require(
             transactions[_transactionId].destination != address(0),
             "Transaction does not exist"
@@ -280,7 +333,9 @@ contract MultiSignatureWallet {
         );
     }
 
-    function revokeConfirmation(uint256 _transactionId) external OnlyOwner {
+    function revokeConfirmation(
+        uint256 _transactionId
+    ) external OnlyOwner whenNotPaused {
         require(
             transactions[_transactionId].destination != address(0),
             "Transaction does not exist"
@@ -307,7 +362,9 @@ contract MultiSignatureWallet {
         return confirmationCount[_transactionId] >= required;
     }
 
-    function executeTransaction(uint256 _transactionId) external OnlyOwner {
+    function executeTransaction(
+        uint256 _transactionId
+    ) external OnlyOwner whenNotPaused {
         _resetSpendingCounters();
 
         require(
@@ -342,6 +399,8 @@ contract MultiSignatureWallet {
         }(data);
         uint256 gasUsed = gasStart - gasleft();
         if (success) {
+            dailySpent += value;
+            weeklySpent += value;
             emit Execution(
                 _transactionId,
                 destination,
@@ -366,8 +425,7 @@ contract MultiSignatureWallet {
 
     function batchConfirmation(
         uint256[] memory _transactionIds
-    ) external OnlyOwner {
-        _resetSpendingCounters();
+    ) external OnlyOwner whenNotPaused {
         require(_transactionIds.length > 0, "Not a valid Input");
         for (uint i = 0; i < _transactionIds.length; i++) {
             uint256 txId = _transactionIds[i];
@@ -392,7 +450,9 @@ contract MultiSignatureWallet {
 
     function batchExecution(
         uint256[] memory _transactionIds
-    ) external OnlyOwner {
+    ) external OnlyOwner whenNotPaused {
+        _resetSpendingCounters();
+
         require(_transactionIds.length > 0, "Not a valid Input");
         uint successCount = 0;
         for (uint i = 0; i < _transactionIds.length; i++) {
@@ -406,7 +466,8 @@ contract MultiSignatureWallet {
                 transactions[txId].executed ||
                 confirmationCount[txId] < required ||
                 dailySpent + value > dailyLimit ||
-                weeklySpent + value > weeklyLimit
+                weeklySpent + value > weeklyLimit ||
+                block.timestamp < transactions[txId].timestamp + timeLockPeriod
             ) {
                 continue;
             }
@@ -419,6 +480,9 @@ contract MultiSignatureWallet {
             uint256 gasUsed = gasStart - gasleft();
             if (success) {
                 successCount += 1;
+
+                dailySpent += value;
+                weeklySpent += value;
                 emit Execution(
                     txId,
                     destination,
@@ -545,11 +609,11 @@ contract MultiSignatureWallet {
         emit Deposit(msg.sender, msg.value, block.timestamp);
     }
 
-    function setDailyLimit(uint256 _limit) external OnlyOwner {
+    function setDailyLimit(uint256 _limit) external OnlyOwner whenNotPaused {
         dailyLimit = _limit;
     }
 
-    function setWeeklyLimit(uint256 _limit) external OnlyOwner {
+    function setWeeklyLimit(uint256 _limit) external OnlyOwner whenNotPaused {
         weeklyLimit = _limit;
     }
 
@@ -563,5 +627,77 @@ contract MultiSignatureWallet {
             weeklySpent = 0;
             lastWeeklyReset = block.timestamp;
         }
+    }
+
+    function pause() external OnlyOwner {
+        paused = true;
+        emit PauseStateChanged(true, msg.sender, block.timestamp);
+    }
+
+    function unpause() external OnlyOwner {
+        paused = false;
+        emit PauseStateChanged(false, msg.sender, block.timestamp);
+    }
+
+    function addGuardian(address guardian) external OnlyOwner {
+        require(guardian != address(0), "Invalid guardian address");
+        require(!isGuardian[guardian], "Already a guardian");
+        isGuardian[guardian] = true;
+        guardians.push(guardian);
+
+        emit GuardianAdded(guardian, msg.sender, block.timestamp);
+    }
+
+    function removeGuardian(address guardian) external OnlyOwner {
+        require(isGuardian[guardian], "Not a guardian");
+        isGuardian[guardian] = false;
+
+        for (uint i = 0; i < guardians.length; i++) {
+            if (guardians[i] == guardian) {
+                guardians[i] = guardians[guardians.length - 1];
+                guardians.pop();
+                break;
+            }
+        }
+
+        emit GuardianRemoved(guardian, msg.sender, block.timestamp);
+    }
+
+    function emergencyRecover(
+        address[] memory newOwners,
+        uint newRequired
+    ) external whenPaused {
+        require(isGuardian[msg.sender], "Not guardian");
+
+        for (uint i = 0; i < owners.length; i++) {
+            isOwner[owners[i]] = false;
+        }
+        owners = newOwners;
+        for (uint i = 0; i < newOwners.length; i++) {
+            isOwner[newOwners[i]] = true;
+        }
+        required = newRequired;
+        emit RequirementChange(
+            required,
+            newRequired,
+            msg.sender,
+            block.timestamp
+        );
+        emit EmergencyRecovery(
+            newOwners,
+            newRequired,
+            msg.sender,
+            block.timestamp
+        );
+    }
+
+    function guardianUnpause() external whenPaused {
+        require(isGuardian[msg.sender], "Not guardian");
+        paused = false;
+        emit PauseStateChanged(false, msg.sender, block.timestamp);
+    }
+
+    function getGuardians() public view returns (address[] memory) {
+        return guardians;
     }
 }
