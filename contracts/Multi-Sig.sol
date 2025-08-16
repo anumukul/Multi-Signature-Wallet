@@ -496,4 +496,57 @@ contract MultiSignatureWallet {
 
         return transactionId;
     }
+
+    function confirmTransaction(uint256 _transactionId) external OnlyOwner {
+        require(
+            transactions[_transactionId].destination != address(0),
+            "Transaction does not exist"
+        );
+        require(
+            !transactions[_transactionId].executed,
+            "Transaction already executed"
+        );
+        require(
+            !confirmations[_transactionId][msg.sender],
+            "Already confirmed"
+        );
+
+        confirmations[_transactionId][msg.sender] = true;
+        confirmationCount[_transactionId] += 1;
+
+        emit Confirmation(
+            _transactionId,
+            msg.sender,
+            confirmationCount[_transactionId],
+            block.timestamp
+        );
+    }
+
+    function revokeConfirmation(uint256 _transactionId) external OnlyOwner {
+        require(
+            transactions[_transactionId].destination != address(0),
+            "Transaction does not exist"
+        );
+        require(
+            !transactions[_transactionId].executed,
+            "Transaction already executed"
+        );
+        require(
+            confirmations[_transactionId][msg.sender],
+            "No confirmation to revoke"
+        );
+
+        confirmations[_transactionId][msg.sender] = false;
+        confirmationCount[_transactionId] -= 1;
+        emit Revocation(
+            _transactionId,
+            msg.sender,
+            confirmationCount[_transactionId],
+            block.timestamp
+        );
+    }
+
+    function isConfirmed(uint256 _transactionId) public view returns (bool) {
+        return confirmationCount[_transactionId] >= required;
+    }
 }
