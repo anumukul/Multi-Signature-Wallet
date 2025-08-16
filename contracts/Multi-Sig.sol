@@ -11,6 +11,15 @@ contract MultiSignatureWallet {
 
     uint256 public timeLockPeriod = 10; //in seconds
 
+    uint256 public dailyLimit;
+    uint256 public weeklyLimit;
+
+    uint256 public dailySpent;
+    uint256 public weeklySpent;
+
+    uint256 public lastDailyReset;
+    uint256 public lastWeeklyReset;
+
     constructor(
         address[] memory _owners,
         uint256 _required
@@ -299,6 +308,8 @@ contract MultiSignatureWallet {
     }
 
     function executeTransaction(uint256 _transactionId) external OnlyOwner {
+        _resetSpendingCounters();
+
         require(
             transactions[_transactionId].destination != address(0),
             "Not a valid transaction"
@@ -322,6 +333,10 @@ contract MultiSignatureWallet {
         uint256 value = transactions[_transactionId].value;
         bytes memory data = transactions[_transactionId].data;
         uint256 gasStart = gasleft();
+
+        require(dailySpent + value <= dailyLimit, "Exceeds daily limit");
+        require(weeklySpent + value <= weeklyLimit, "Exceeds weekly limit");
+
         (bool success, bytes memory returnData) = destination.call{
             value: value
         }(data);
@@ -352,6 +367,7 @@ contract MultiSignatureWallet {
     function batchConfirmation(
         uint256[] memory _transactionIds
     ) external OnlyOwner {
+        _resetSpendingCounters();
         require(_transactionIds.length > 0, "Not a valid Input");
         for (uint i = 0; i < _transactionIds.length; i++) {
             uint256 txId = _transactionIds[i];
@@ -381,18 +397,22 @@ contract MultiSignatureWallet {
         uint successCount = 0;
         for (uint i = 0; i < _transactionIds.length; i++) {
             uint256 txId = _transactionIds[i];
+
+            uint256 value = transactions[txId].value;
+            bytes memory data = transactions[txId].data;
+            uint256 gasStart = gasleft();
             if (
                 transactions[txId].destination == address(0) ||
                 transactions[txId].executed ||
-                confirmationCount[txId] < required
+                confirmationCount[txId] < required ||
+                dailySpent + value > dailyLimit ||
+                weeklySpent + value > weeklyLimit
             ) {
                 continue;
             }
             transactions[txId].executed = true;
             address destination = transactions[txId].destination;
-            uint256 value = transactions[txId].value;
-            bytes memory data = transactions[txId].data;
-            uint256 gasStart = gasleft();
+
             (bool success, bytes memory returnData) = destination.call{
                 value: value
             }(data);
@@ -523,5 +543,25 @@ contract MultiSignatureWallet {
 
     fallback() external payable {
         emit Deposit(msg.sender, msg.value, block.timestamp);
+    }
+
+    function setDailyLimit(uint256 _limit) external OnlyOwner {
+        dailyLimit = _limit;
+    }
+
+    function setWeeklyLimit(uint256 _limit) external OnlyOwner {
+        weeklyLimit = _limit;
+    }
+
+    function _resetSpendingCounters() internal {
+        if (block.timestamp >= lastDailyReset + 1 days) {
+            dailySpent = 0;
+            lastDailyReset = block.timestamp;
+        }
+
+        if (block.timestamp >= lastWeeklyReset + 7 days) {
+            weeklySpent = 0;
+            lastWeeklyReset = block.timestamp;
+        }
     }
 }
