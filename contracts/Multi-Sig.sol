@@ -9,6 +9,8 @@ contract MultiSignatureWallet {
 
     uint256 public constant MAX_OWNER_COUNT = 50;
 
+    uint256 public timeLockPeriod = 10; //in seconds
+
     constructor(
         address[] memory _owners,
         uint256 _required
@@ -59,6 +61,13 @@ contract MultiSignatureWallet {
         uint256 indexed previousRequired,
         uint256 indexed newRequired,
         address indexed changedBy,
+        uint256 timestamp
+    );
+
+    event TimeLockPeriodChanged(
+        uint256 oldPeriod,
+        uint256 newPeriod,
+        address changedBy,
         uint256 timestamp
     );
 
@@ -127,6 +136,16 @@ contract MultiSignatureWallet {
         address indexed changedBy,
         uint256 timestamp
     );
+
+    function setTimeLockPeriod(uint256 _period) external OnlyOwner {
+        timeLockPeriod = _period;
+        emit TimeLockPeriodChanged(
+            timeLockPeriod,
+            _period,
+            msg.sender,
+            block.timestamp
+        );
+    }
 
     function addOwner(
         address newOwner
@@ -292,6 +311,12 @@ contract MultiSignatureWallet {
             confirmationCount[_transactionId] >= required,
             "Not enough confirmations"
         );
+        require(
+            block.timestamp >=
+                transactions[_transactionId].timestamp + timeLockPeriod,
+            "Time lock not expired"
+        );
+
         transactions[_transactionId].executed = true;
         address destination = transactions[_transactionId].destination;
         uint256 value = transactions[_transactionId].value;
@@ -333,7 +358,8 @@ contract MultiSignatureWallet {
             if (
                 transactions[txId].destination == address(0) ||
                 transactions[txId].executed ||
-                confirmations[txId][msg.sender]
+                confirmations[txId][msg.sender] ||
+                block.timestamp < transactions[txId].timestamp + timeLockPeriod
             ) {
                 continue;
             }
