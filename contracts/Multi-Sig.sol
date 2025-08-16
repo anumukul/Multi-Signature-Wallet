@@ -549,4 +549,58 @@ contract MultiSignatureWallet {
     function isConfirmed(uint256 _transactionId) public view returns (bool) {
         return confirmationCount[_transactionId] >= required;
     }
+
+    function executeTransaction(uint256 _transactionId) external OnlyOwner {
+        require(
+            transactions[_transactionId].destination != address(0),
+            "Not a valid transaction"
+        );
+
+        require(
+            transactions[_transactionId].executed == false,
+            "Transaction Already executed"
+        );
+
+        require(
+            confirmationCount[_transactionId] >= required,
+            "Not enough confirmations"
+        );
+
+        transactions[_transactionId].executed = true;
+
+        address destination = transactions[_transactionId].destination;
+
+        uint256 value = transactions[_transactionId].value;
+        bytes memory data = transactions[_transactionId].data;
+
+        uint256 gasStart = gasleft();
+
+        (bool success, bytes memory returnData) = destination.call{
+            value: value
+        }(data);
+
+        uint256 gasUsed = gasStart - gasleft();
+
+        if (success) {
+            emit Execution(
+                _transactionId,
+                destination,
+                value,
+                success,
+                returnData,
+                msg.sender,
+                gasUsed,
+                block.timestamp
+            );
+        } else {
+            emit ExecutionFailure(
+                _transactionId,
+                destination,
+                value,
+                returnData,
+                msg.sender,
+                block.timestamp
+            );
+        }
+    }
 }
