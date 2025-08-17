@@ -1,6 +1,9 @@
 require("@nomicfoundation/hardhat-toolbox");
 
 /** @type import('hardhat/config').HardhatUserConfig */
+
+require("dotenv").config();
+
 module.exports = {
   solidity: {
      version: "0.8.20",
@@ -21,6 +24,12 @@ module.exports = {
     hardhat: {
       chainId: 1337,
       allowUnlimitedContractSize: true 
+    },
+
+    sepolia:{
+
+      url:process.env.RPC_URL,
+      accounts:[process.env.PRIVATE_KEY]
     }
   }
 };

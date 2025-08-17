@@ -134,5 +134,15 @@ it("should allow emergency recovery", async function () {
   await wallet.connect(addr4).emergencyRecover([addr1.address, addr2.address], 2);
   expect(await wallet.getOwners()).to.include.members([addr1.address, addr2.address]);
 });
+
+it("should reject execution before time lock expires", async function () {
+  const to = addr4.address;
+  await wallet.connect(addr1).submitTransaction(to, 0, "0x");
+  await wallet.connect(addr2).confirmTransaction(0);
+  await wallet.setDailyLimit(1);
+  await wallet.setWeeklyLimit(1);
+
+  await expect(wallet.connect(addr1).executeTransaction(0)).to.be.revertedWith("Time lock not expired");
+});
 });
 
