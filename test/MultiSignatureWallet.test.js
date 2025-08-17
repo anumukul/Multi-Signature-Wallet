@@ -27,4 +27,35 @@ describe("MultiSignatureWallet", function () {
     guardians = await wallet.getGuardians();
     expect(guardians).to.not.include(addr4.address);
   });
+
+  it("should allow owner to submit transaction", async function () {
+  const to = addr4.address;
+  const value = ethers.parseEther("1");
+  const data = "0x";
+  await expect(wallet.connect(addr1).submitTransaction(to, value, data))
+    .to.emit(wallet, "Submission");
 });
+
+it("should allow confirmation and execution of transaction", async function () {
+  const to = addr4.address;
+  const value = ethers.parseEther("1");
+  const data = "0x";
+
+  await addr1.sendTransaction({
+    to: wallet.target,
+    value: ethers.parseEther("2")
+  });
+  await wallet.connect(addr1).submitTransaction(to, value, data);
+  await wallet.connect(addr2).confirmTransaction(0);
+
+  await ethers.provider.send("evm_increaseTime", [11]); 
+await ethers.provider.send("evm_mine", []); 
+
+  await wallet.setDailyLimit(ethers.parseEther("10"));
+  await wallet.setWeeklyLimit(ethers.parseEther("100"));
+
+  await expect(wallet.connect(addr1).executeTransaction(0))
+    .to.emit(wallet, "Execution");
+});
+});
+
