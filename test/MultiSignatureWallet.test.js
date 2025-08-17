@@ -94,5 +94,45 @@ const tx1 = await wallet.transactions(1);
 expect(tx0[3]).to.equal(true); 
 expect(tx1[3]).to.equal(true); 
 });
+
+it("should pause and unpause the test", async function(){
+
+  await wallet.connect(addr1).pause();
+
+  expect(await wallet.connect(addr1).paused()).to.be.true;
+    await wallet.connect(addr1).unpause();
+
+    expect(await wallet.connect(addr1).paused()).to.be.false;
+
+  
+
+
+});
+
+
+
+it("should allow guardian to unpause when paused", async function () {
+
+  await wallet.connect(addr1).pause();
+
+  expect(await wallet.paused()).to.be.true;
+
+  await wallet.connect(addr1).addGuardian(addr4.address);
+
+  await wallet.connect(addr4).guardianUnpause();
+   expect(await wallet.paused()).to.be.false;
+
+
+    
+
+
+});
+
+it("should allow emergency recovery", async function () {
+  await wallet.connect(addr1).addGuardian(addr4.address);
+  await wallet.connect(addr1).pause();
+  await wallet.connect(addr4).emergencyRecover([addr1.address, addr2.address], 2);
+  expect(await wallet.getOwners()).to.include.members([addr1.address, addr2.address]);
+});
 });
 
