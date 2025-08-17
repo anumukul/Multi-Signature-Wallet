@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 
 describe("MultiSignatureWallet", function () {
   let wallet, owners, addr1, addr2, addr3, addr4, addr5;
-  const required = 2;
+  const  required = 2;
 
   beforeEach(async function () {
     [addr1, addr2, addr3, addr4, addr5] = await ethers.getSigners();
@@ -56,6 +56,43 @@ await ethers.provider.send("evm_mine", []);
 
   await expect(wallet.connect(addr1).executeTransaction(0))
     .to.emit(wallet, "Execution");
+});
+
+it("should confirm and execute batch transactions", async function () {
+  await wallet.connect(addr1).submitTransaction(addr4.address, 0, "0x");
+  await wallet.connect(addr1).submitTransaction(addr5.address, 0, "0x");
+
+
+
+  await addr1.sendTransaction({
+    to: wallet.target,
+    value: ethers.parseEther("200")
+  });
+
+  await wallet.connect(addr2).batchConfirmation([0, 1]);
+
+   await ethers.provider.send("evm_increaseTime", [11]); 
+await ethers.provider.send("evm_mine", []); 
+
+  await wallet.connect(addr3).batchConfirmation([0,1]);
+
+
+   
+
+  await wallet.setDailyLimit(ethers.parseEther("10"));
+  await wallet.setWeeklyLimit(ethers.parseEther("100"));
+
+  console.log(await wallet.transactions(0));
+console.log(await wallet.transactions(1));
+
+  await wallet.connect(addr1).batchExecution([0, 1]);
+
+  console.log(await wallet.transactions(0));
+console.log(await wallet.transactions(1));
+  const tx0 = await wallet.transactions(0);
+const tx1 = await wallet.transactions(1);
+expect(tx0[3]).to.equal(true); 
+expect(tx1[3]).to.equal(true); 
 });
 });
 

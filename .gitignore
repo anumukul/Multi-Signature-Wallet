@@ -1,2 +1,31 @@
-node_modules
+# Node modules
+node_modules/
+
+# Hardhat build artifacts and cache
+artifacts/
+cache/
+
+# Environment variables
 .env
+
+# Coverage output
+coverage/
+
+# TypeChain generated types
+typechain/
+
+# npm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# Windows system files
+Thumbs.db
+
+# VSCode settings
+.vscode/
+
+# Hardhat temp files
+*.tsbuildinfo
+
