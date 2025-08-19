@@ -1,32 +1,70 @@
-import React, { useState } from 'react';
-import { useReadContract, useWriteContract, useAccount, useWatchContractEvent } from 'wagmi';
-import { MULTISIG_CONTRACT_ADDRESS, MULTISIG_ABI } from '../contracts/MultiSigWallet';
-import { formatEther } from 'viem';
-import { Clock, CheckCircle, Play, Eye, Filter } from 'lucide-react';
+import { useState } from "react";
+import {
+  useReadContract,
+  useWriteContract,
+  useAccount,
+  useWatchContractEvent,
+} from "wagmi";
+import { MULTISIG_CONTRACT_ADDRESS, MULTISIG_ABI } from "../contracts/MultiSigWallet";
+import { formatEther } from "viem";
+
+
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import Grid from "@mui/material/Grid";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import LinearProgress from "@mui/material/LinearProgress";
+import Alert from "@mui/material/Alert";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import CircularProgress from "@mui/material/CircularProgress";
+
+// MUI Icons
+import HistoryIcon from "@mui/icons-material/History";
+import FilterAltIcon from "@mui/icons-material/FilterAlt";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import BoltIcon from "@mui/icons-material/Bolt";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import PlayCircleIcon from "@mui/icons-material/PlayCircle";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import ErrorIcon from "@mui/icons-material/Error";
+import PauseCircleIcon from "@mui/icons-material/PauseCircle";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+import UndoIcon from "@mui/icons-material/Undo";
 
 const TransactionList = () => {
   const { address } = useAccount();
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState("all");
   const [confirmingTxId, setConfirmingTxId] = useState(null);
   const [revokingTxId, setRevokingTxId] = useState(null);
   const [executingTxId, setExecutingTxId] = useState(null);
 
-  
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   useWatchContractEvent({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
     eventName: [
-      'Submission', 'Confirmation', 'Revocation', 'Execution',
-      'Deposit', 'TimeLockPeriodChanged', 'PauseStateChanged', 'RequirementChange'
+      "Submission",
+      "Confirmation",
+      "Revocation",
+      "Execution",
+      "Deposit",
+      "TimeLockPeriodChanged",
+      "PauseStateChanged",
+      "RequirementChange",
     ],
-    onLogs: () => setRefetchTrigger(t => t + 1),
+    onLogs: () => setRefetchTrigger((t) => t + 1),
   });
 
   const { data: transactionCount } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
-    functionName: 'transactionCount',
+    functionName: "transactionCount",
     enabled: true,
     scopeKey: refetchTrigger,
   });
@@ -34,8 +72,13 @@ const TransactionList = () => {
   const { data: transactionIds } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
-    functionName: 'getTransactionIds',
-    args: [0n, transactionCount || 0n, filter === 'pending' || filter === 'all', filter === 'executed' || filter === 'all'],
+    functionName: "getTransactionIds",
+    args: [
+      0n,
+      transactionCount || 0n,
+      filter === "pending" || filter === "all",
+      filter === "executed" || filter === "all",
+    ],
     enabled: !!transactionCount,
     scopeKey: refetchTrigger,
   });
@@ -50,7 +93,7 @@ const TransactionList = () => {
       await confirmTx({
         address: MULTISIG_CONTRACT_ADDRESS,
         abi: MULTISIG_ABI,
-        functionName: 'confirmTransaction',
+        functionName: "confirmTransaction",
         args: [transactionId],
       });
     } finally {
@@ -64,7 +107,7 @@ const TransactionList = () => {
       await revokeTx({
         address: MULTISIG_CONTRACT_ADDRESS,
         abi: MULTISIG_ABI,
-        functionName: 'revokeConfirmation',
+        functionName: "revokeConfirmation",
         args: [transactionId],
       });
     } finally {
@@ -78,7 +121,7 @@ const TransactionList = () => {
       await executeTx({
         address: MULTISIG_CONTRACT_ADDRESS,
         abi: MULTISIG_ABI,
-        functionName: 'executeTransaction',
+        functionName: "executeTransaction",
         args: [transactionId],
       });
     } finally {
@@ -87,47 +130,73 @@ const TransactionList = () => {
   };
 
   return (
-    <div className="card">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Transactions</h2>
-        <div className="flex items-center space-x-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <select
+    <Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <HistoryIcon color="primary" sx={{ fontSize: 28 }} />
+          <Box>
+            <Typography variant="h6" fontWeight="bold">
+              Transaction History
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Monitor and manage wallet operations
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <FilterAltIcon color="action" />
+          <Select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="border rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            size="small"
+            sx={{ minWidth: 180 }}
           >
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="executed">Executed</option>
-          </select>
-        </div>
-      </div>
+            <MenuItem value="all">All Transactions</MenuItem>
+            <MenuItem value="pending">Pending Only</MenuItem>
+            <MenuItem value="executed">Executed Only</MenuItem>
+          </Select>
+        </Box>
+      </Box>
+
       {!transactionIds || transactionIds.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>No transactions found</p>
-          <p className="text-sm mt-2">Submit your first transaction to get started</p>
-        </div>
+        <Card sx={{ borderRadius: 3, boxShadow: 4, p: 5, textAlign: "center", minHeight: 250 }}>
+          <CardContent>
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+              <AccessTimeIcon color="disabled" sx={{ fontSize: 48 }} />
+            </Box>
+            <Typography variant="h6" fontWeight="bold" mb={1}>
+              No transactions yet
+            </Typography>
+            <Typography color="text.secondary" mb={2}>
+              Your transaction history will appear here once you submit your first transaction to the vault.
+            </Typography>
+            <Alert icon={<BoltIcon color="warning" />} severity="info" sx={{ mt: 2 }}>
+              Ready to receive transactions
+            </Alert>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-4">
-          {transactionIds.map((txId) => (
-            <TransactionItem
-              key={txId.toString()}
-              transactionId={txId}
-              onConfirm={handleConfirm}
-              onRevoke={handleRevoke}
-              onExecute={handleExecute}
-              isConfirming={confirmingTxId === txId}
-              isRevoking={revokingTxId === txId}
-              isExecuting={executingTxId === txId}
-              userAddress={address}
-              refetchTrigger={refetchTrigger}
-            />
-          ))}
-        </div>
+        <Box sx={{ mt: 2 }}>
+          <Grid container spacing={2}>
+            {transactionIds.map((txId) => (
+              <Grid item xs={12} key={txId.toString()}>
+                <TransactionItem
+                  transactionId={txId}
+                  onConfirm={handleConfirm}
+                  onRevoke={handleRevoke}
+                  onExecute={handleExecute}
+                  isConfirming={confirmingTxId === txId}
+                  isRevoking={revokingTxId === txId}
+                  isExecuting={executingTxId === txId}
+                  userAddress={address}
+                  refetchTrigger={refetchTrigger}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };
 
@@ -147,7 +216,7 @@ const TransactionItem = ({
   const { data: transaction } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
-    functionName: 'getTransaction',
+    functionName: "getTransaction",
     args: [transactionId],
     scopeKey: refetchTrigger,
   });
@@ -155,7 +224,7 @@ const TransactionItem = ({
   const { data: confirmationCount } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
-    functionName: 'getConfirmationCount',
+    functionName: "getConfirmationCount",
     args: [transactionId],
     scopeKey: refetchTrigger,
   });
@@ -163,14 +232,14 @@ const TransactionItem = ({
   const { data: required } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
-    functionName: 'required',
+    functionName: "required",
     scopeKey: refetchTrigger,
   });
 
   const { data: userConfirmed } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
-    functionName: 'confirmations',
+    functionName: "confirmations",
     args: [transactionId, userAddress],
     enabled: !!userAddress,
     scopeKey: refetchTrigger,
@@ -179,7 +248,7 @@ const TransactionItem = ({
   const { data: confirmations } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
-    functionName: 'getConfirmations',
+    functionName: "getConfirmations",
     args: [transactionId],
     enabled: showDetails,
     scopeKey: refetchTrigger,
@@ -187,171 +256,246 @@ const TransactionItem = ({
 
   if (!transaction) {
     return (
-      <div className="border rounded-lg p-4 animate-pulse">
-        <div className="flex items-center space-x-4">
-          <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-          <div className="flex-1 space-y-2">
-            <div className="h-4 bg-gray-300 rounded w-1/4"></div>
-            <div className="h-3 bg-gray-300 rounded w-1/2"></div>
-          </div>
-        </div>
-      </div>
+      <Card sx={{ borderRadius: 2, boxShadow: 2, p: 2, mb: 2 }}>
+        <CardContent>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box sx={{ width: 16, height: 16, bgcolor: "grey.300", borderRadius: "50%" }} />
+            <Box sx={{ flex: 1 }}>
+              <Box sx={{ width: "25%", height: 24, bgcolor: "grey.300", borderRadius: 1, mb: 1 }} />
+              <Box sx={{ width: "50%", height: 18, bgcolor: "grey.300", borderRadius: 1 }} />
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
     );
   }
 
   const [destination, value, data, executed] = transaction;
   const isExecuted = executed;
   const canExecute = confirmationCount >= required && !isExecuted;
-  const valueInEth = value ? formatEther(value) : '0';
+  const valueInEth = value ? formatEther(value) : "0";
 
-  const getStatusInfo = () => {
-    if (isExecuted) return { color: 'bg-green-500', icon: CheckCircle, text: 'Executed' };
-    if (canExecute) return { color: 'bg-yellow-500', icon: Play, text: 'Ready to Execute' };
-    return { color: 'bg-gray-400', icon: Clock, text: 'Pending' };
-  };
-
-  const statusInfo = getStatusInfo();
-  const StatusIcon = statusInfo.icon;
+  const statusInfo = (() => {
+    if (isExecuted)
+      return { color: "success.main", icon: <CheckCircleIcon color="success" />, text: "Executed" };
+    if (canExecute) return { color: "warning.main", icon: <PlayCircleIcon color="warning" />, text: "Ready" };
+    return { color: "info.main", icon: <AccessTimeIcon color="info" />, text: "Pending" };
+  })();
 
   return (
-    <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className={`w-3 h-3 rounded-full ${statusInfo.color}`} />
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-medium">TX #{transactionId.toString()}</span>
-              <StatusIcon className={`w-4 h-4 ${isExecuted ? 'text-green-500' : canExecute ? 'text-yellow-500' : 'text-gray-400'}`} />
-            </div>
-            <div className="text-sm text-gray-600 space-y-1">
-              <p>To: {destination?.slice(0, 6)}...{destination?.slice(-4)}</p>
-              <p>Value: {parseFloat(valueInEth).toFixed(4)} ETH</p>
-              <p className="text-xs">Status: {statusInfo.text}</p>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="text-center">
-            <span className="text-sm bg-gray-100 px-2 py-1 rounded font-medium">
-              {confirmationCount?.toString() || '0'}/{required?.toString() || '0'}
-            </span>
-            <p className="text-xs text-gray-500 mt-1">confirmations</p>
-          </div>
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="btn-secondary p-2"
-            title="View Details"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          {!isExecuted && (
-            <>
-              {!userConfirmed ? (
-                <button
-                  onClick={() => onConfirm(transactionId)}
-                  disabled={isConfirming}
-                  className="btn-primary text-sm px-3 py-1"
-                  title="Confirm Transaction"
+    <Card sx={{
+      borderRadius: 4,
+      boxShadow: "0 8px 30px rgba(60,60,100,0.13)",
+      bgcolor: "rgba(30,41,59,0.97)",
+      position: "relative",
+      transition: "0.3s",
+      '&:hover': { boxShadow: 8 }
+    }}>
+      <CardContent>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box sx={{ width: 20, height: 20, bgcolor: statusInfo.color, borderRadius: "50%", boxShadow: 1 }} />
+            <Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Typography variant="subtitle1" fontWeight="bold" color="primary.main">
+                  TX #{transactionId.toString()}
+                </Typography>
+                {statusInfo.icon}
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: 2,
+                    fontWeight: "bold",
+                    bgcolor: isExecuted
+                      ? "success.light"
+                      : canExecute
+                      ? "warning.light"
+                      : "info.light",
+                    color: isExecuted
+                      ? "success.dark"
+                      : canExecute
+                      ? "warning.dark"
+                      : "info.dark",
+                    border: 1,
+                    borderColor: isExecuted
+                      ? "success.main"
+                      : canExecute
+                      ? "warning.main"
+                      : "info.main",
+                  }}
                 >
-                  {isConfirming ? 'Confirming...' : 'Confirm'}
-                </button>
-              ) : (
-                <button
-                  onClick={() => onRevoke(transactionId)}
-                  disabled={isRevoking}
-                  className="btn-secondary text-sm px-3 py-1"
-                  title="Revoke Confirmation"
-                >
-                  {isRevoking ? 'Revoking...' : 'Revoke'}
-                </button>
-              )}
-              {canExecute && (
-                <button
-                  onClick={() => onExecute(transactionId)}
-                  disabled={isExecuting}
-                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                  title="Execute Transaction"
-                >
-                  {isExecuting ? 'Executing...' : 'Execute'}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-      {showDetails && (
-        <div className="mt-4 pt-4 border-t space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium text-gray-700">Destination:</span>
-              <p className="text-gray-600 break-all font-mono text-xs mt-1">{destination}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700">Value:</span>
-              <p className="text-gray-600 mt-1">{valueInEth} ETH</p>
-            </div>
-            <div className="md:col-span-2">
-              <span className="font-medium text-gray-700">Data:</span>
-              <p className="text-gray-600 break-all font-mono text-xs mt-1 bg-gray-50 p-2 rounded">
-                {data || '0x'}
-              </p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700">Status:</span>
-              <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                isExecuted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                {isExecuted ? 'Executed' : 'Pending'}
-              </span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700">Progress:</span>
-              <div className="mt-1">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((Number(confirmationCount) / Number(required)) * 100, 100)}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {confirmationCount?.toString()}/{required?.toString()} confirmations
-                </p>
-              </div>
-            </div>
-          </div>
-          {confirmations && confirmations.length > 0 && (
-            <div>
-              <span className="font-medium text-gray-700 text-sm">Confirmed by:</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {confirmations.map((addr, index) => (
-                  <span
-                    key={index}
-                    className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium"
-                    title={addr}
-                  >
-                    {addr.slice(0, 6)}...{addr.slice(-4)}
-                    {addr.toLowerCase() === userAddress?.toLowerCase() && ' (You)'}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {canExecute && !isExecuted && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div className="flex items-center">
-                <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-                <span className="text-green-800 text-sm font-medium">
-                  Ready to Execute
+                  {statusInfo.text}
+                </Box>
+              </Box>
+              <Box sx={{ fontSize: 14, color: "text.secondary", mt: 1 }}>
+                <span style={{ fontWeight: "bold" }}>To:</span>{" "}
+                <span style={{ fontFamily: "monospace" }}>
+                  {destination?.slice(0, 10)}...{destination?.slice(-8)}
                 </span>
-              </div>
-              <p className="text-green-700 text-xs mt-1">
-                This transaction has enough confirmations and can be executed.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+                <br />
+                <span style={{ fontWeight: "bold" }}>Value:</span>{" "}
+                <span style={{ fontWeight: "bold", fontSize: 16 }}>
+                  {Number.parseFloat(valueInEth).toFixed(4)} ETH
+                </span>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box sx={{ textAlign: "center" }}>
+              <Box
+                sx={{
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                  px: 2,
+                  py: 1,
+                  borderRadius: 2,
+                  fontWeight: "bold",
+                  fontSize: 16,
+                  boxShadow: 2,
+                }}
+              >
+                {confirmationCount?.toString() || "0"}/{required?.toString() || "0"}
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                signatures
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={() => setShowDetails(!showDetails)} title="View Details">
+              <VisibilityIcon color="action" />
+            </IconButton>
+            {!isExecuted && (
+              <>
+                {!userConfirmed ? (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    size="small"
+                    onClick={() => onConfirm(transactionId)}
+                    disabled={isConfirming}
+                    startIcon={isConfirming ? <CircularProgress color="inherit" size={16} /> : <DoneAllIcon />}
+                    sx={{ fontWeight: "bold" }}
+                  >
+                    {isConfirming ? "Confirming..." : "Confirm"}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outlined"
+                    color="info"
+                    size="small"
+                    onClick={() => onRevoke(transactionId)}
+                    disabled={isRevoking}
+                    startIcon={isRevoking ? <CircularProgress color="inherit" size={16} /> : <UndoIcon />}
+                  >
+                    {isRevoking ? "Revoking..." : "Revoke"}
+                  </Button>
+                )}
+                {canExecute && (
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    size="small"
+                    onClick={() => onExecute(transactionId)}
+                    disabled={isExecuting}
+                    startIcon={isExecuting ? <CircularProgress color="inherit" size={16} /> : <PlayCircleIcon />}
+                  >
+                    {isExecuting ? "Executing..." : "Execute"}
+                  </Button>
+                )}
+              </>
+            )}
+          </Box>
+        </Box>
+
+        {/* Details */}
+        {showDetails && (
+          <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: "divider" }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <Card sx={{ bgcolor: "grey.100", mb: 2 }}>
+                  <CardContent>
+                    <Typography variant="subtitle2">Destination Address</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
+                      {destination}
+                    </Typography>
+                  </CardContent>
+                </Card>
+                <Card sx={{ bgcolor: "grey.100", mb: 2 }}>
+                  <CardContent>
+                    <Typography variant="subtitle2">Value</Typography>
+                    <Typography variant="body2">{valueInEth} ETH</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Card sx={{ bgcolor: "grey.100", mb: 2 }}>
+                  <CardContent>
+                    <Typography variant="subtitle2">Progress</Typography>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min((Number(confirmationCount) / Number(required)) * 100, 100)}
+                      color={canExecute ? "warning" : isExecuted ? "success" : "info"}
+                      sx={{ mt: 1, height: 12, borderRadius: 2 }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {confirmationCount?.toString()}/{required?.toString()} confirmations required
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+            <Card sx={{ bgcolor: "grey.100", mb: 2 }}>
+              <CardContent>
+                <Typography variant="subtitle2">Transaction Data</Typography>
+                <Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
+                  {data || "0x"}
+                </Typography>
+              </CardContent>
+            </Card>
+            {confirmations && confirmations.length > 0 && (
+              <Card sx={{ bgcolor: "grey.100", mb: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle2" mb={1}>Confirmed by</Typography>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                    {confirmations.map((addr, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          bgcolor: "primary.light",
+                          color: "primary.dark",
+                          border: 1,
+                          borderColor: "primary.main",
+                          px: 2,
+                          py: 1,
+                          borderRadius: 2,
+                          fontWeight: "bold",
+                          fontSize: 14,
+                          mr: 1,
+                        }}
+                        title={addr}
+                      >
+                        {addr.slice(0, 6)}...{addr.slice(-4)}
+                        {addr.toLowerCase() === userAddress?.toLowerCase() && " (You)"}
+                      </Box>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+            {canExecute && !isExecuted && (
+              <Alert icon={<CheckCircleIcon color="success" />} severity="success" sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  Ready for Execution
+                </Typography>
+                <Typography variant="body2">
+                  This transaction has sufficient confirmations and can be executed immediately.
+                </Typography>
+              </Alert>
+            )}
+          </Box>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
