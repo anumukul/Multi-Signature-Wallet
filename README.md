@@ -118,7 +118,7 @@ npm run dev
 
 #### Connect Wallet Page
 
-![Connect Wallet](.frontend/src/assets/connect.png)
+![Connect Wallet](./frontend/src/assets/connect.png)
 
 ---
 
