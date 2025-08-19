@@ -11,6 +11,9 @@ All UI updates are real-time, powered by contract event subscriptions.
 **Contract Address (Sepolia Testnet):**  
 `0x1Ac1Edd80E7FcC6d45Bc6e6bf820234bDe2d7BAA`
 
+**Live App:**  
+[https://multi-signature-wallet-229uw09s4.vercel.app/](https://multi-signature-wallet-229uw09s4.vercel.app/)
+
 ---
 
 ## 🛠️ Tech Stack
@@ -19,7 +22,7 @@ All UI updates are real-time, powered by contract event subscriptions.
 - **Testing & Deployment:** [Hardhat](https://hardhat.org/), [ethers.js](https://docs.ethers.org/)
 - **Frontend:** [React](https://react.dev/) + [Vite](https://vitejs.dev/)
 - **Wallet/Chain Integration:** [Wagmi](https://wagmi.sh/), [RainbowKit](https://rainbowkit.com/)
-- **UI:** [Tailwind CSS](https://tailwindcss.com/)
+- **UI:** [Material UI](https://mui.com/)
 - **Language:** Javascript
 
 ---
@@ -101,7 +104,21 @@ npm run dev
 
 ## 🌐 Demo Video / Screenshots
 
-_Add screenshots or a video walkthrough here._
+**Live Demo:** [https://multi-signature-wallet-229uw09s4.vercel.app/](https://multi-signature-wallet-229uw09s4.vercel.app/)
+
+### Screenshots
+
+#### Dashboard & Wallet Info
+
+![MultiSig Vault Dashboard](./frontend/src/assets/dashboard.png)
+
+#### Owner Management Panel
+
+![Owner Management](./frontend/src/assets/owners.png)
+
+#### Connect Wallet Page
+
+![Connect Wallet](.frontend/src/assets/connect.png)
 
 ---
 
@@ -113,8 +130,8 @@ MIT
 
 ## 🙏 Credits
 
-- Built by [anumukul456](https://github.com/anumukul456)
-- Powered by open source: Solidity, Hardhat, ethers.js, React, Wagmi, RainbowKit, TailwindCSS
+- Built by [anumukul](https://github.com/anumukul)
+- Powered by open source: Solidity, Hardhat, ethers.js, React, Wagmi, RainbowKit, Material UI
 
 ---
 
