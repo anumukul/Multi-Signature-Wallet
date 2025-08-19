@@ -8,19 +8,17 @@ const SubmitTransaction = () => {
   const [destination, setDestination] = useState('');
   const [value, setValue] = useState('');
   const [data, setData] = useState('0x');
-  
+
   const { data: hash, writeContract, isPending, error } = useWriteContract();
-  
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     try {
-      const valueWei = value ? parseEther(value) : 0n;
       
+      const valueWei = value ? parseEther(value.toString()) : 0n;
       writeContract({
         address: MULTISIG_CONTRACT_ADDRESS,
         abi: MULTISIG_ABI,

@@ -1,24 +1,34 @@
-
-
-import React, { useState, useEffect } from 'react';
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
+import React, { useState } from 'react';
+import { useReadContract, useWriteContract, useAccount, useWatchContractEvent } from 'wagmi';
 import { MULTISIG_CONTRACT_ADDRESS, MULTISIG_ABI } from '../contracts/MultiSigWallet';
-import { formatEther, formatUnits } from 'viem';
-import { Clock, CheckCircle, XCircle, Play, RotateCcw, Eye, Filter } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatEther } from 'viem';
+import { Clock, CheckCircle, Play, Eye, Filter } from 'lucide-react';
 
 const TransactionList = () => {
+  const { address } = useAccount();
+  const [filter, setFilter] = useState('all');
+  const [confirmingTxId, setConfirmingTxId] = useState(null);
+  const [revokingTxId, setRevokingTxId] = useState(null);
+  const [executingTxId, setExecutingTxId] = useState(null);
 
-    const { address } = useAccount();
-  const [filter, setFilter] = useState('all'); 
-  const [selectedTx, setSelectedTx] = useState(null);
-  const [transactionDetails, setTransactionDetails] = useState({});
+  
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
+  useWatchContractEvent({
+    address: MULTISIG_CONTRACT_ADDRESS,
+    abi: MULTISIG_ABI,
+    eventName: [
+      'Submission', 'Confirmation', 'Revocation', 'Execution',
+      'Deposit', 'TimeLockPeriodChanged', 'PauseStateChanged', 'RequirementChange'
+    ],
+    onLogs: () => setRefetchTrigger(t => t + 1),
+  });
 
   const { data: transactionCount } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
     functionName: 'transactionCount',
-    watch: true,
+    enabled: true,
+    scopeKey: refetchTrigger,
   });
 
   const { data: transactionIds } = useReadContract({
@@ -27,59 +37,63 @@ const TransactionList = () => {
     functionName: 'getTransactionIds',
     args: [0n, transactionCount || 0n, filter === 'pending' || filter === 'all', filter === 'executed' || filter === 'all'],
     enabled: !!transactionCount,
-    watch: true,
+    scopeKey: refetchTrigger,
   });
 
-  const { writeContract: confirmTx, isPending: isConfirming } = useWriteContract();
-  const { writeContract: revokeTx, isPending: isRevoking } = useWriteContract();
-  const { writeContract: executeTx, isPending: isExecuting } = useWriteContract();
+  const { writeContract: confirmTx } = useWriteContract();
+  const { writeContract: revokeTx } = useWriteContract();
+  const { writeContract: executeTx } = useWriteContract();
 
-  useEffect(() => {
-    if (transactionIds && transactionIds.length > 0) {
-      transactionIds.forEach(txId => {
-        
+  const handleConfirm = async (transactionId) => {
+    setConfirmingTxId(transactionId);
+    try {
+      await confirmTx({
+        address: MULTISIG_CONTRACT_ADDRESS,
+        abi: MULTISIG_ABI,
+        functionName: 'confirmTransaction',
+        args: [transactionId],
       });
+    } finally {
+      setConfirmingTxId(null);
     }
-  }, [transactionIds]);
-
-   const handleConfirm = (transactionId) => {
-    confirmTx({
-      address: MULTISIG_CONTRACT_ADDRESS,
-      abi: MULTISIG_ABI,
-      functionName: 'confirmTransaction',
-      args: [transactionId],
-    });
   };
 
-  const handleRevoke = (transactionId) => {
-    revokeTx({
-      address: MULTISIG_CONTRACT_ADDRESS,
-      abi: MULTISIG_ABI,
-      functionName: 'revokeConfirmation',
-      args: [transactionId],
-    });
+  const handleRevoke = async (transactionId) => {
+    setRevokingTxId(transactionId);
+    try {
+      await revokeTx({
+        address: MULTISIG_CONTRACT_ADDRESS,
+        abi: MULTISIG_ABI,
+        functionName: 'revokeConfirmation',
+        args: [transactionId],
+      });
+    } finally {
+      setRevokingTxId(null);
+    }
   };
 
-  const handleExecute = (transactionId) => {
-    executeTx({
-      address: MULTISIG_CONTRACT_ADDRESS,
-      abi: MULTISIG_ABI,
-      functionName: 'executeTransaction',
-      args: [transactionId],
-    });
+  const handleExecute = async (transactionId) => {
+    setExecutingTxId(transactionId);
+    try {
+      await executeTx({
+        address: MULTISIG_CONTRACT_ADDRESS,
+        abi: MULTISIG_ABI,
+        functionName: 'executeTransaction',
+        args: [transactionId],
+      });
+    } finally {
+      setExecutingTxId(null);
+    }
   };
-
 
   return (
-  
-
-      <div className="card">
+    <div className="card">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Transactions</h2>
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-gray-500" />
-          <select 
-            value={filter} 
+          <select
+            value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="border rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
@@ -89,7 +103,6 @@ const TransactionList = () => {
           </select>
         </div>
       </div>
-
       {!transactionIds || transactionIds.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -105,78 +118,71 @@ const TransactionList = () => {
               onConfirm={handleConfirm}
               onRevoke={handleRevoke}
               onExecute={handleExecute}
-              isConfirming={isConfirming}
-              isRevoking={isRevoking}
-              isExecuting={isExecuting}
+              isConfirming={confirmingTxId === txId}
+              isRevoking={revokingTxId === txId}
+              isExecuting={executingTxId === txId}
               userAddress={address}
+              refetchTrigger={refetchTrigger}
             />
           ))}
         </div>
       )}
     </div>
+  );
+};
 
-
-    
-
-
-  )
-}
-
-
-const TransactionItem = ({ 
-  transactionId, 
-  onConfirm, 
-  onRevoke, 
-  onExecute, 
-  isConfirming, 
-  isRevoking, 
+const TransactionItem = ({
+  transactionId,
+  onConfirm,
+  onRevoke,
+  onExecute,
+  isConfirming,
+  isRevoking,
   isExecuting,
-  userAddress 
+  userAddress,
+  refetchTrigger,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
 
-  
   const { data: transaction } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
     functionName: 'getTransaction',
     args: [transactionId],
-    watch: true,
+    scopeKey: refetchTrigger,
   });
 
-  
   const { data: confirmationCount } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
     functionName: 'getConfirmationCount',
     args: [transactionId],
-    watch: true,
+    scopeKey: refetchTrigger,
   });
 
-  
   const { data: required } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
     functionName: 'required',
+    scopeKey: refetchTrigger,
   });
 
- 
   const { data: userConfirmed } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
     functionName: 'confirmations',
     args: [transactionId, userAddress],
     enabled: !!userAddress,
-    watch: true,
+    scopeKey: refetchTrigger,
   });
 
-  
   const { data: confirmations } = useReadContract({
     address: MULTISIG_CONTRACT_ADDRESS,
     abi: MULTISIG_ABI,
     functionName: 'getConfirmations',
     args: [transactionId],
     enabled: showDetails,
+    scopeKey: refetchTrigger,
   });
 
   if (!transaction) {
@@ -198,7 +204,6 @@ const TransactionItem = ({
   const canExecute = confirmationCount >= required && !isExecuted;
   const valueInEth = value ? formatEther(value) : '0';
 
-  
   const getStatusInfo = () => {
     if (isExecuted) return { color: 'bg-green-500', icon: CheckCircle, text: 'Executed' };
     if (canExecute) return { color: 'bg-yellow-500', icon: Play, text: 'Ready to Execute' };
@@ -213,7 +218,6 @@ const TransactionItem = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className={`w-3 h-3 rounded-full ${statusInfo.color}`} />
-          
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-medium">TX #{transactionId.toString()}</span>
@@ -226,17 +230,13 @@ const TransactionItem = ({
             </div>
           </div>
         </div>
-
         <div className="flex items-center space-x-2">
-        
           <div className="text-center">
             <span className="text-sm bg-gray-100 px-2 py-1 rounded font-medium">
               {confirmationCount?.toString() || '0'}/{required?.toString() || '0'}
             </span>
             <p className="text-xs text-gray-500 mt-1">confirmations</p>
           </div>
-          
-         
           <button
             onClick={() => setShowDetails(!showDetails)}
             className="btn-secondary p-2"
@@ -244,8 +244,7 @@ const TransactionItem = ({
           >
             <Eye className="w-4 h-4" />
           </button>
-
-         
+          {!isExecuted && (
             <>
               {!userConfirmed ? (
                 <button
@@ -266,7 +265,6 @@ const TransactionItem = ({
                   {isRevoking ? 'Revoking...' : 'Revoke'}
                 </button>
               )}
-
               {canExecute && (
                 <button
                   onClick={() => onExecute(transactionId)}
@@ -281,8 +279,6 @@ const TransactionItem = ({
           )}
         </div>
       </div>
-
-      
       {showDetails && (
         <div className="mt-4 pt-4 border-t space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -312,7 +308,7 @@ const TransactionItem = ({
               <span className="font-medium text-gray-700">Progress:</span>
               <div className="mt-1">
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min((Number(confirmationCount) / Number(required)) * 100, 100)}%` }}
                   ></div>
@@ -323,15 +319,13 @@ const TransactionItem = ({
               </div>
             </div>
           </div>
-
-          
           {confirmations && confirmations.length > 0 && (
             <div>
               <span className="font-medium text-gray-700 text-sm">Confirmed by:</span>
               <div className="flex flex-wrap gap-2 mt-2">
                 {confirmations.map((addr, index) => (
-                  <span 
-                    key={index} 
+                  <span
+                    key={index}
                     className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium"
                     title={addr}
                   >
@@ -342,8 +336,6 @@ const TransactionItem = ({
               </div>
             </div>
           )}
-
-         
           {canExecute && !isExecuted && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <div className="flex items-center">
@@ -363,6 +355,4 @@ const TransactionItem = ({
   );
 };
 
-
-
-export default TransactionList
+export default TransactionList;
